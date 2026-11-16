@@ -4,6 +4,7 @@ Terraform for the billing dashboard: a Laravel app on ECS Fargate in eu-west-1, 
 blue/green web service, a rolling queue worker and a single scheduler.
 
 - [Repository layout](#repository-layout)
+- [What gets created](#what-gets-created)
 - [Initial setup](#initial-setup): start here for a new AWS account
 - [Day-to-day changes](#day-to-day-changes)
 - [Tearing it down](#tearing-it-down)
@@ -40,6 +41,59 @@ There are two Terraform configurations, each with its own `terraform.tfvars`:
 | --- | --- | --- | --- |
 | `bootstrap/` | Once, from your machine | Local file | `bootstrap/terraform.tfvars` |
 | `envs/production/` | By CI on every merge to main | S3 bucket created by bootstrap | `envs/production/terraform.tfvars` |
+
+## What gets created
+
+Everything is in eu-west-1 and prefixed `billing-dashboard`.
+
+### Bootstrap
+
+| Resource | Name | Purpose |
+| --- | --- | --- |
+| S3 bucket | `raventrack-billing-dashboard-tfstate` | Terraform state for production; versioned, encrypted, private, TLS-only |
+| IAM role | `billing-dashboard-terraform-plan` | Read-only role for pull request plans |
+| IAM role | `billing-dashboard-terraform-apply` | Administrator role for applies, only from the `production` GitHub Environment |
+
+### Production
+
+| Area | Resources | Notes |
+| --- | --- | --- |
+| Network | 1 VPC (`10.0.0.0/16`), 2 public and 2 private subnets across 2 availability zones, internet gateway, 1 NAT gateway with an Elastic IP, 2 route tables, S3 gateway endpoint | Load balancer in public subnets; tasks and database in private ones |
+| Container registry | 2 ECR repositories: `billing-dashboard/app`, `billing-dashboard/nginx` | Immutable tags, scan on push, keeps the last 30 images |
+| Load balancer | 1 internet-facing ALB, 2 target groups (`web-blue`, `web-green`), 3 listeners (80 redirect, 443, 8443 test), 2 listener rules, 1 security group | ECS shifts traffic between the two target groups |
+| ECS cluster | 1 Fargate cluster with Container Insights, 1 security group shared by all tasks | |
+| Web service | `billing-dashboard-web`: service, task definition (nginx + PHP-FPM), autoscaling target and CPU policy (1 to 3 tasks), 2 log groups | Deploys blue/green |
+| Worker service | `billing-dashboard-worker`: service, task definition, 1 log group | 1 task running `queue:work`; deploys rolling |
+| Scheduler service | `billing-dashboard-scheduler`: service, task definition, 1 log group | 1 task running `schedule:work` |
+| Database | 1 Aurora PostgreSQL Serverless v2 cluster with 1 instance (0.5 to 2 ACUs), subnet group, security group | App data, queue, sessions and cache; 7-day backups, deletion protection |
+| Storage | 1 S3 bucket: `billing-dashboard-uploads-<account-id>` | Laravel uploads; versioned, encrypted, private |
+| Secrets | `billing-dashboard/app-key` (empty until you set it), plus the database password secret that RDS creates and manages | |
+| IAM | 5 roles: `ecs-execution`, `ecs-task`, `ecs-infrastructure`, `github-build`, `github-deploy` | The last two are assumed by the application repository's release workflow |
+| Monitoring | 4 CloudWatch alarms (target 5xx, p95 response time, unhealthy hosts for blue and for green), 1 SNS topic `billing-dashboard-alerts` | The first two alarms also trigger deployment rollback |
+
+### Used but not created by Terraform
+
+- **GitHub OIDC provider:** one per AWS account, shared; only looked up.
+- **ACM certificate:** requested by hand and passed in by ARN.
+- **DNS records:** the dashboard record and the certificate validation CNAME live in another
+  AWS account.
+
+### Running costs
+
+These bill continuously whether or not anyone uses the dashboard: the NAT gateway, the load
+balancer, the three always-on Fargate tasks (web, worker, scheduler), and Aurora at its
+0.5 ACU minimum. The rest is usage-based or negligible at this scale.
+
+To list what is actually in state, as opposed to what the code describes (production needs
+`terraform init` with AWS credentials first):
+
+```bash
+terraform -chdir=bootstrap state list
+```
+
+```bash
+terraform -chdir=envs/production state list
+```
 
 ## Initial setup
 
