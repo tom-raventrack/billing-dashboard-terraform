@@ -60,6 +60,12 @@ variable "db_deletion_protection" {
   default = true
 }
 
+variable "uploads_force_destroy" {
+  description = "Allow the uploads bucket to be deleted while it still contains objects."
+  type        = bool
+  default     = false
+}
+
 variable "secret_names" {
   description = "Short names of Secrets Manager secrets to create as empty containers, e.g. app-key."
   type        = set(string)

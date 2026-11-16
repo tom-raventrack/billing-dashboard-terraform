@@ -6,6 +6,7 @@ blue/green web service, a rolling queue worker and a single scheduler.
 - [Repository layout](#repository-layout)
 - [Initial setup](#initial-setup): start here for a new AWS account
 - [Day-to-day changes](#day-to-day-changes)
+- [Tearing it down](#tearing-it-down)
 - [GitHub Actions reference](#github-actions-reference)
 - [Design notes](#design-notes)
 - [Who owns what](#who-owns-what)
@@ -267,6 +268,88 @@ then set its value as in step 7. It reaches the containers on the next release.
 
 **Provider versions.** The AWS provider is constrained to `~> 6.4` and locked at 6.73.0 in each
 configuration's `.terraform.lock.hcl`. Commit the lock files; `.terraform/` is ignored.
+
+## Tearing it down
+
+`terraform destroy` is never run by CI; run it from your machine with administrator
+credentials for the account. Destroy production first, then bootstrap, because the bootstrap
+bucket holds production's state.
+
+**This permanently deletes the database, every uploaded file, all container images and all
+logs.** The only thing kept is one final database snapshot.
+
+### 1. Destroy production
+
+A plain `terraform destroy` fails by design: the load balancer and database have deletion
+protection, and the uploads bucket and ECR repositories refuse to be deleted while they hold
+data. The `allow_destroy` variable lifts all four guards, and has to be applied before the
+destroy so the change reaches the resources.
+
+Stop releases and infrastructure merges first, so CI is not deploying while you destroy.
+
+```bash
+cd envs/production
+```
+
+```bash
+terraform init
+```
+
+Lift the guards. This is an in-place change to the load balancer, database, bucket and
+repositories; nothing is deleted yet.
+
+```bash
+terraform apply -var allow_destroy=true
+```
+
+Destroy. Review the plan Terraform shows before confirming; it takes around 15 minutes.
+
+```bash
+terraform destroy -var allow_destroy=true
+```
+
+Passing the variable on the command line keeps `allow_destroy` out of `terraform.tfvars`, so
+it can't be left switched on by accident.
+
+### 2. Clean up what Terraform leaves behind
+
+| Left behind | Why | What to do |
+| --- | --- | --- |
+| Database snapshot `billing-dashboard-final` | Taken automatically as a last backup | Keep it as long as you might need the data, then delete it in the RDS console. It must be deleted before the stack can be destroyed a second time, because the name is reused. |
+| Application secrets, such as `billing-dashboard/app-key` | Secrets Manager holds deleted secrets for 7 days | Nothing, unless you are rebuilding within 7 days; the names are reserved until then. To free a name immediately, run the command below. |
+| ACM certificate | Created by hand, not by Terraform | Delete it in the ACM console. |
+| DNS records in the DNS account | Managed in another AWS account | Ask its owner to remove the dashboard record and the certificate validation CNAME. |
+| GitHub variables and `production` environments | Not managed by Terraform | Remove `AWS_BUILD_ROLE_ARN` and `AWS_DEPLOY_ROLE_ARN` from the application repository; the roles they point to no longer exist. |
+
+```bash
+aws secretsmanager delete-secret --region eu-west-1 --secret-id billing-dashboard/app-key --force-delete-without-recovery
+```
+
+### 3. Destroy bootstrap (optional)
+
+Only do this if the account is being retired from this project altogether. It removes the
+state bucket and the two roles the infrastructure workflow uses, so CI stops working. The
+account's GitHub OIDC provider is not touched; bootstrap only looks it up.
+
+The state bucket is protected twice: `prevent_destroy` in the code, and S3 refusing to delete
+a bucket that still contains objects.
+
+1. In `bootstrap/main.tf`, remove the `lifecycle { prevent_destroy = true }` block from
+   `aws_s3_bucket.state`.
+2. Empty the bucket, including old versions: in the S3 console, select
+   `raventrack-billing-dashboard-tfstate` and choose **Empty**.
+3. Destroy:
+
+```bash
+cd bootstrap
+```
+
+```bash
+terraform destroy
+```
+
+Afterwards, remove `AWS_TERRAFORM_PLAN_ROLE_ARN` and `AWS_TERRAFORM_APPLY_ROLE_ARN` from this
+repository's variables, and delete the local `bootstrap/terraform.tfstate` files.
 
 ## GitHub Actions reference
 

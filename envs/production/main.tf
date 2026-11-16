@@ -54,7 +54,8 @@ module "network" {
 module "ecr" {
   source = "../../modules/ecr"
 
-  name = local.name
+  name         = local.name
+  force_delete = var.allow_destroy
 }
 
 module "alb" {
@@ -66,6 +67,7 @@ module "alb" {
   public_subnet_ids           = module.network.public_subnet_ids
   certificate_arn             = var.certificate_arn
   test_listener_allowed_cidrs = var.test_listener_allowed_cidrs
+  enable_deletion_protection  = !var.allow_destroy
 }
 
 # ---------------------------------------------------------------------------
@@ -92,6 +94,8 @@ module "data" {
   db_min_capacity        = var.db_min_capacity
   db_max_capacity        = var.db_max_capacity
   secret_names           = toset(values(var.app_secrets))
+  db_deletion_protection = !var.allow_destroy
+  uploads_force_destroy  = var.allow_destroy
 }
 
 module "iam" {

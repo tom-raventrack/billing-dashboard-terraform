@@ -20,6 +20,12 @@ variable "vpc_cidr" {
   default = "10.0.0.0/16"
 }
 
+variable "allow_destroy" {
+  description = "Teardown switch. false (normal) keeps deletion protection on the load balancer and database and refuses to delete a non-empty uploads bucket or ECR repository. Set to true and apply before running terraform destroy."
+  type        = bool
+  default     = false
+}
+
 # --- DNS -------------------------------------------------------------------
 
 variable "domain_name" {

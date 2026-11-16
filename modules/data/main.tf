@@ -87,7 +87,8 @@ resource "aws_rds_cluster_instance" "this" {
 # ---------------------------------------------------------------------------
 
 resource "aws_s3_bucket" "uploads" {
-  bucket = "${var.name}-uploads-${data.aws_caller_identity.current.account_id}"
+  bucket        = "${var.name}-uploads-${data.aws_caller_identity.current.account_id}"
+  force_destroy = var.uploads_force_destroy
 }
 
 resource "aws_s3_bucket_versioning" "uploads" {
