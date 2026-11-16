@@ -1,9 +1,9 @@
-domain_name = "dashboard.internal.raventrack.com"
+domain_name = "dashboard-internal.raventrack.com"
 
 # TODO: replace with the ARN of the issued ACM certificate for domain_name.
 # Request it in this account in eu-west-1; the validation CNAME is added in
 # the account that hosts the raventrack.com zone.
-certificate_arn = "CHANGE_ME"
+certificate_arn = "arn:aws:acm:eu-west-1:863518431717:certificate/4f6897f7-c15c-45f1-9a2e-fb46d0c26e48"
 
 # TODO: replace with the Laravel application repository (owner/name).
 github_app_repository = "tom-raventrack/billing-dashboard-v3"
