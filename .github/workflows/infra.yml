@@ -63,6 +63,16 @@ jobs:
           terraform -chdir=bootstrap init -backend=false
           terraform -chdir=bootstrap validate
 
+      # Temporary: prints the subject GitHub puts in the OIDC token, to compare
+      # with the role's trust policy. Remove once role assumption works.
+      - name: Show OIDC subject
+        run: |
+          curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" \
+            | jq -r '.value | split(".")[1]' | tr '_-' '/+' \
+            | awk '{ while (length($0) % 4) $0 = $0 "="; print }' \
+            | base64 -d | jq '{sub, aud, repository, event_name, ref}'
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_TERRAFORM_PLAN_ROLE_ARN }}
