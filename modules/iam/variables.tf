@@ -42,7 +42,7 @@ variable "metrics_namespace" {
 }
 
 variable "github_repository" {
-  description = "Application repository, as owner/name."
+  description = "Application repository, exactly as it appears in the OIDC token subject after 'repo:', e.g. owner@owner-id/name@repository-id."
   type        = string
 }
 

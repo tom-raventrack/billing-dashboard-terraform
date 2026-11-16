@@ -70,9 +70,23 @@ Check `bootstrap/terraform.tfvars`:
 
 | Setting | Meaning |
 | --- | --- |
-| `github_infra_repository` | This repository, as `owner/name`. Only this repository can assume the Terraform roles. |
+| `github_infra_repository` | This repository, in the ID-qualified form GitHub uses in its OIDC tokens (see below). Only this repository can assume the Terraform roles. |
 | `state_bucket_name` | Globally unique S3 bucket name. If you change it, change the `backend "s3"` block in `envs/production/versions.tf` to match. |
 | `name`, `region`, `github_environment` | Defaults; leave as they are unless you have a reason to change them. |
+
+**Repository names include numeric IDs.** GitHub identifies this account's repositories in
+OIDC tokens as `owner@owner-id/name@repository-id`, for example
+`tom-raventrack@170417133/billing-dashboard-terraform@1459966530`. The role trust policies
+match that string exactly, so a plain `owner/name` fails with "Not authorized to perform
+sts:AssumeRoleWithWebIdentity". The same applies to `github_app_repository` in step 4. To
+find a repository's IDs, replace `OWNER/NAME` and read `owner_id` and `repository_id`:
+
+```bash
+curl -s https://api.github.com/repos/OWNER/NAME | jq '{owner_id: .owner.id, repository_id: .id}'
+```
+
+That works without signing in for public repositories. For a private one, read the same
+`owner.id` and `id` fields with an authenticated request such as `gh api repos/OWNER/NAME`.
 
 Then, from the repository root:
 
@@ -139,7 +153,7 @@ Edit `envs/production/terraform.tfvars`:
 | Setting | Meaning |
 | --- | --- |
 | `certificate_arn` | ARN of the issued certificate from step 3. |
-| `github_app_repository` | The Laravel application repository, as `owner/name`. Only this repository can push images and deploy. |
+| `github_app_repository` | The Laravel application repository, in the ID-qualified form described in step 1. Only this repository can push images and deploy. |
 | `domain_name` | Already set to `dashboard.internal.raventrack.com`. |
 | `enable_blue_green` | `true` for blue/green. Set to `false` to start with rolling deploys and switch later. |
 

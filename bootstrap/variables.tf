@@ -17,7 +17,7 @@ variable "state_bucket_name" {
 }
 
 variable "github_infra_repository" {
-  description = "GitHub repository holding this Terraform code, as owner/name."
+  description = "GitHub repository holding this Terraform code, exactly as it appears in the OIDC token subject after 'repo:'. For this account that is owner@owner-id/name@repository-id."
   type        = string
 }
 

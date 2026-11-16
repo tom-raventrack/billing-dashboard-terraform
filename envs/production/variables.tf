@@ -41,7 +41,7 @@ variable "test_listener_allowed_cidrs" {
 # --- GitHub ----------------------------------------------------------------
 
 variable "github_app_repository" {
-  description = "Laravel application repository, as owner/name."
+  description = "Laravel application repository, exactly as it appears in the OIDC token subject after 'repo:', e.g. owner@owner-id/name@repository-id."
   type        = string
 }
 
