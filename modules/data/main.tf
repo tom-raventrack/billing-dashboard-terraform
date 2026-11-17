@@ -27,11 +27,20 @@ resource "aws_vpc_security_group_ingress_rule" "db_from_tasks" {
   to_port                      = 5432
 }
 
+# Resolves a major version such as "16" to the newest minor version AWS
+# currently offers in this region, so the code never names a minor version
+# that has been withdrawn.
+data "aws_rds_engine_version" "postgres" {
+  engine  = "aurora-postgresql"
+  version = var.db_engine_version
+  latest  = true
+}
+
 resource "aws_rds_cluster" "this" {
   cluster_identifier = var.name
   engine             = "aurora-postgresql"
   engine_mode        = "provisioned"
-  engine_version     = var.db_engine_version
+  engine_version     = data.aws_rds_engine_version.postgres.version_actual
   database_name      = var.db_name
   master_username    = var.db_master_username
 
@@ -60,7 +69,8 @@ resource "aws_rds_cluster" "this" {
   }
 
   lifecycle {
-    # Minor versions move during maintenance windows.
+    # Minor versions move during maintenance windows, and the lookup above
+    # returns a newer one as AWS releases them; neither should trigger a change.
     ignore_changes = [engine_version]
   }
 }

@@ -27,9 +27,9 @@ variable "db_master_username" {
 }
 
 variable "db_engine_version" {
-  description = "Aurora PostgreSQL version. Check it is available in the region before the first apply."
+  description = "Aurora PostgreSQL major version (e.g. \"16\"); the newest available minor version is used at creation. A full version such as \"16.9\" pins it exactly."
   type        = string
-  default     = "16.6"
+  default     = "16"
 }
 
 variable "db_min_capacity" {
