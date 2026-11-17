@@ -36,6 +36,7 @@ locals {
     AWS_DEFAULT_REGION   = var.region
     GOOGLE_REDIRECT_URI  = "${local.app_url}/auth/google/callback"
     GOOGLE_SSO_DOMAIN    = "raventrack.com"
+    HUBSPOT_REDIRECT_URI = "${local.app_url}/api/hubspot/callback"
   }, var.extra_environment)
 
   # Injected by ECS at task start from Secrets Manager.

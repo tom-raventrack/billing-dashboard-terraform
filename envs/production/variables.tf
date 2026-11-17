@@ -69,9 +69,14 @@ variable "app_secrets" {
   description = "Map of environment variable name to Secrets Manager secret short name. Terraform creates the secret; set its value outside Terraform."
   type        = map(string)
   default = {
-    APP_KEY              = "app-key"
-    GOOGLE_CLIENT_ID     = "google-client-id"
-    GOOGLE_CLIENT_SECRET = "google-client-secret"
+    APP_KEY               = "app-key"
+    GOOGLE_CLIENT_ID      = "google-client-id"
+    GOOGLE_CLIENT_SECRET  = "google-client-secret"
+    XERO_CLIENT_ID        = "xero-client-id"
+    XERO_CLIENT_SECRET    = "xero-client-secret"
+    HUBSPOT_CLIENT_ID     = "hubspot-client-id"
+    HUBSPOT_CLIENT_SECRET = "hubspot-client-secret"
+    HUBSPOT_APP_ID        = "hubspot-app-id"
   }
 }
 
