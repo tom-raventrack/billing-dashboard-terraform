@@ -289,8 +289,8 @@ In the Laravel application repository:
 ### 9. Release for the first time
 
 Merge to `main` in the application repository. The workflow tests, builds and pushes the
-images, waits for approval, runs migrations, then deploys web, worker and scheduler. Once it
-finishes, the dashboard is live at `https://dashboard.internal.raventrack.com`.
+images, waits for approval, runs migrations and `app:setup-production`, then deploys web,
+worker and scheduler. Once it finishes, the dashboard is live at `https://dashboard.internal.raventrack.com`.
 
 Before real users arrive, practise a rollback by releasing an image whose `/up` route fails
 and confirming traffic stays on the previous version.
@@ -423,7 +423,9 @@ Both workflows authenticate through GitHub OIDC, so no AWS keys are stored in Gi
    `AWS_BUILD_ROLE_ARN`. Skipped when the images already exist, since tags are immutable.
 3. **Approve.** One approval on the `production` environment covers the rest.
 4. **Migrate.** Registers a new worker task definition revision and runs
-   `php artisan migrate --force` as a one-off task; a non-zero exit code stops the release.
+   `php artisan migrate --force`, then `php artisan app:setup-production`, as a one-off task;
+   a non-zero exit code stops the release. Both run on every release, so the setup command
+   must be idempotent and compatible with the code still serving traffic.
 5. **Deploy web.** ECS runs the blue/green stages. The job then checks the service is running
    the new revision, so a rollback fails the release.
 6. **Deploy worker and scheduler.** Rolling, after web traffic has shifted.
