@@ -117,6 +117,7 @@ module "iam" {
   github_repository        = var.github_app_repository
   github_environment       = var.environment
   github_build_refs        = var.github_build_refs
+  enable_execute_command   = var.enable_execute_command
 }
 
 # ---------------------------------------------------------------------------
@@ -149,6 +150,8 @@ module "web" {
   security_group_ids = [module.ecs_cluster.task_security_group_id]
   execution_role_arn = module.iam.execution_role_arn
   task_role_arn      = module.iam.task_role_arn
+
+  enable_execute_command = var.enable_execute_command
 
   app_image   = local.app_image
   nginx_image = local.nginx_image
@@ -190,6 +193,8 @@ module "worker" {
   execution_role_arn = module.iam.execution_role_arn
   task_role_arn      = module.iam.task_role_arn
 
+  enable_execute_command = var.enable_execute_command
+
   app_image   = local.app_image
   environment = local.app_environment
   secrets     = local.app_secrets
@@ -217,6 +222,8 @@ module "scheduler" {
   security_group_ids = [module.ecs_cluster.task_security_group_id]
   execution_role_arn = module.iam.execution_role_arn
   task_role_arn      = module.iam.task_role_arn
+
+  enable_execute_command = var.enable_execute_command
 
   app_image   = local.app_image
   environment = local.app_environment

@@ -57,3 +57,9 @@ variable "github_build_refs" {
   type        = list(string)
   default     = ["refs/heads/main"]
 }
+
+variable "enable_execute_command" {
+  description = "Grant the task role the SSM permissions ECS Exec needs."
+  type        = bool
+  default     = false
+}

@@ -175,6 +175,7 @@ resource "aws_ecs_service" "this" {
   deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
   propagate_tags                     = "SERVICE"
+  enable_execute_command             = var.enable_execute_command
 
   deployment_controller {
     type = "ECS"

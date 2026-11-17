@@ -193,7 +193,7 @@ The `raventrack.com` zone is in another AWS account, so Terraform manages neithe
 certificate nor the DNS records.
 
 1. In this account, in **eu-west-1**, request a public ACM certificate for
-   `dashboard.internal.raventrack.com` with DNS validation.
+   `dashboard-internal.raventrack.com` with DNS validation.
 2. Ask the DNS account's owner to add the validation CNAME that ACM shows.
 3. Wait for the certificate status to become **Issued**. The production apply fails if it is
    still pending.
@@ -209,7 +209,7 @@ Edit `envs/production/terraform.tfvars`:
 | --- | --- |
 | `certificate_arn` | ARN of the issued certificate from step 3. |
 | `github_app_repository` | The Laravel application repository, in the ID-qualified form described in step 1. Only this repository can push images and deploy. |
-| `domain_name` | Already set to `dashboard.internal.raventrack.com`. |
+| `domain_name` | Already set to `dashboard-internal.raventrack.com`. |
 | `enable_blue_green` | `true` for blue/green. Set to `false` to start with rolling deploys and switch later. |
 
 Optional settings, such as `alert_email` and task sizes, are listed in
@@ -244,7 +244,7 @@ terraform output
 
 ### 6. Point DNS at the load balancer
 
-Ask the DNS account's owner to create a record for `dashboard.internal.raventrack.com` using
+Ask the DNS account's owner to create a record for `dashboard-internal.raventrack.com` using
 the `alb_dns` output: either a CNAME to `dns_name`, or a Route 53 alias A record using
 `dns_name` and `zone_id`.
 
@@ -290,7 +290,7 @@ In the Laravel application repository:
 
 Merge to `main` in the application repository. The workflow tests, builds and pushes the
 images, waits for approval, runs migrations and `app:setup-production`, then deploys web,
-worker and scheduler. Once it finishes, the dashboard is live at `https://dashboard.internal.raventrack.com`.
+worker and scheduler. Once it finishes, the dashboard is live at `https://dashboard-internal.raventrack.com`.
 
 Before real users arrive, practise a rollback by releasing an image whose `/up` route fails
 and confirming traffic stays on the previous version.

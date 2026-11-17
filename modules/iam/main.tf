@@ -96,6 +96,23 @@ data "aws_iam_policy_document" "task" {
       values   = [var.metrics_namespace]
     }
   }
+
+  # ECS Exec: the SSM agent in each task opens its session channels with the
+  # task role. These actions do not support resource-level permissions.
+  dynamic "statement" {
+    for_each = var.enable_execute_command ? [1] : []
+
+    content {
+      sid = "EcsExec"
+      actions = [
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel",
+      ]
+      resources = ["*"]
+    }
+  }
 }
 
 resource "aws_iam_role_policy" "task" {

@@ -168,3 +168,9 @@ variable "alarm_response_time_seconds" {
   type        = number
   default     = 2
 }
+
+variable "enable_execute_command" {
+  description = "Allow `aws ecs execute-command` into this service's tasks. The task role needs the matching SSM permissions."
+  type        = bool
+  default     = false
+}

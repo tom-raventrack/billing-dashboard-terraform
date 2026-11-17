@@ -101,3 +101,9 @@ variable "log_retention_days" {
   type    = number
   default = 30
 }
+
+variable "enable_execute_command" {
+  description = "Allow `aws ecs execute-command` into this service's tasks. The task role needs the matching SSM permissions."
+  type        = bool
+  default     = false
+}

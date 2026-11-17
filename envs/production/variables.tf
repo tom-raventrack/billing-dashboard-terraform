@@ -167,3 +167,9 @@ variable "alert_email" {
   type        = string
   default     = null
 }
+
+variable "enable_execute_command" {
+  description = "Enable ECS Exec (`aws ecs execute-command`) on the web, worker and scheduler services."
+  type        = bool
+  default     = true
+}
