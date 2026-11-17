@@ -69,7 +69,9 @@ variable "app_secrets" {
   description = "Map of environment variable name to Secrets Manager secret short name. Terraform creates the secret; set its value outside Terraform."
   type        = map(string)
   default = {
-    APP_KEY = "app-key"
+    APP_KEY              = "app-key"
+    GOOGLE_CLIENT_ID     = "google-client-id"
+    GOOGLE_CLIENT_SECRET = "google-client-secret"
   }
 }
 

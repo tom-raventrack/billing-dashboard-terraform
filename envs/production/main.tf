@@ -13,11 +13,13 @@ locals {
   app_image   = "${module.ecr.repository_urls["app"]}:${var.initial_image_tag}"
   nginx_image = "${module.ecr.repository_urls["nginx"]}:${var.initial_image_tag}"
 
+  app_url = "https://${var.domain_name}"
+
   # Non-secret Laravel configuration, identical for web, worker and scheduler.
   app_environment = merge({
     APP_ENV              = var.environment
     APP_DEBUG            = "false"
-    APP_URL              = "https://${var.domain_name}"
+    APP_URL              = local.app_url
     LOG_CHANNEL          = "stderr"
     DB_CONNECTION        = "pgsql"
     DB_HOST              = module.data.db_endpoint
@@ -31,6 +33,8 @@ locals {
     FILESYSTEM_DISK      = "s3"
     AWS_BUCKET           = module.data.uploads_bucket_name
     AWS_DEFAULT_REGION   = var.region
+    GOOGLE_REDIRECT_URI  = "${local.app_url}/auth/google/callback"
+    GOOGLE_SSO_DOMAIN    = "raventrack.com"
   }, var.extra_environment)
 
   # Injected by ECS at task start from Secrets Manager.
