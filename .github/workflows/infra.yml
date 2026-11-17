@@ -1,0 +1,148 @@
+name: Infrastructure
+
+# Plans on pull requests and applies on merge to main, for envs/production.
+# bootstrap/ is applied by hand and is only format-checked and validated here.
+#
+# Repository variables required (Settings > Secrets and variables > Actions > Variables):
+#   AWS_TERRAFORM_PLAN_ROLE_ARN   bootstrap output terraform_plan_role_arn
+#   AWS_TERRAFORM_APPLY_ROLE_ARN  bootstrap output terraform_apply_role_arn
+#
+# The "production" GitHub Environment must exist with required reviewers.
+
+on:
+  pull_request:
+    paths:
+      - "bootstrap/**"
+      - "modules/**"
+      - "envs/**"
+      - ".github/workflows/infra.yml"
+  push:
+    branches: [main]
+    paths:
+      - "modules/**"
+      - "envs/**"
+      - ".github/workflows/infra.yml"
+
+permissions:
+  contents: read
+
+# Never run two Terraform operations against the same state at once, and
+# never cancel one midway.
+concurrency:
+  group: terraform-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-west-1
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TF_ROOT: envs/production
+
+jobs:
+  plan:
+    name: Plan
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.15"
+          terraform_wrapper: false
+
+      - name: Format check
+        run: terraform fmt -check -recursive -diff
+
+      - name: Validate bootstrap
+        run: |
+          terraform -chdir=bootstrap init -backend=false
+          terraform -chdir=bootstrap validate
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Init
+        run: terraform -chdir="$TF_ROOT" init
+
+      - name: Validate
+        run: terraform -chdir="$TF_ROOT" validate
+
+      - name: Plan
+        id: plan
+        run: |
+          set +e
+          terraform -chdir="$TF_ROOT" plan -no-color -detailed-exitcode -out=tfplan > plan.txt 2>&1
+          code=$?
+          set -e
+          cat plan.txt
+          # 0 = no changes, 2 = changes, anything else = error
+          echo "exitcode=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -ne 0 ] && [ "$code" -ne 2 ]; then exit "$code"; fi
+
+      - name: Comment plan on the pull request
+        if: always() && steps.plan.outputs.exitcode != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PLAN_EXIT_CODE: ${{ steps.plan.outputs.exitcode }}
+        run: |
+          case "$PLAN_EXIT_CODE" in
+            0) summary="No changes." ;;
+            2) summary="Changes to apply on merge." ;;
+            *) summary="Plan failed." ;;
+          esac
+          {
+            echo "### Terraform plan: production"
+            echo
+            echo "$summary"
+            echo
+            echo "<details><summary>Show plan</summary>"
+            echo
+            echo '```'
+            # GitHub comments are capped at 65,536 characters.
+            tail -c 60000 plan.txt
+            echo '```'
+            echo
+            echo "</details>"
+          } > comment.md
+          gh pr comment "$PR_NUMBER" --edit-last --body-file comment.md \
+            || gh pr comment "$PR_NUMBER" --body-file comment.md
+
+  apply:
+    name: Apply
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    # Required reviewers on this environment gate the apply, and the apply
+    # role only trusts tokens issued for it.
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.15"
+          terraform_wrapper: false
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_APPLY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Init
+        run: terraform -chdir="$TF_ROOT" init
+
+      - name: Plan
+        run: terraform -chdir="$TF_ROOT" plan -out=tfplan
+
+      - name: Apply
+        run: terraform -chdir="$TF_ROOT" apply tfplan
