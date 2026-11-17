@@ -31,6 +31,7 @@ locals {
     CACHE_STORE          = "database"
     SESSION_DRIVER       = "database"
     FILESYSTEM_DISK      = "s3"
+    UPLOADS_DISK         = "s3"
     AWS_BUCKET           = module.data.uploads_bucket_name
     AWS_DEFAULT_REGION   = var.region
     GOOGLE_REDIRECT_URI  = "${local.app_url}/auth/google/callback"
