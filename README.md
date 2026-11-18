@@ -346,7 +346,8 @@ configuration's `.terraform.lock.hcl`. Commit the lock files; `.terraform/` is i
 
 ## Tearing it down
 
-`terraform destroy` is never run by CI; run it from your machine with administrator
+CI never destroys on its own. Production can be destroyed by starting the infrastructure
+workflow by hand or from your machine; bootstrap only from your machine, with administrator
 credentials for the account. Destroy production first, then bootstrap, because the bootstrap
 bucket holds production's state.
 
@@ -361,6 +362,18 @@ data. The `allow_destroy` variable lifts all four guards, and has to be applied 
 destroy so the change reaches the resources.
 
 Stop releases and infrastructure merges first, so CI is not deploying while you destroy.
+
+There are two ways to run it.
+
+**From GitHub Actions.** Open Actions > Infrastructure > Run workflow, choose `main`, type
+`destroy production` in the confirmation box and run it. The job waits for a required reviewer
+on the `production` environment, then lifts the guards and destroys. Approving is the last
+check: the destroy plan is not shown for review first, so be sure before you approve. No local
+AWS credentials are needed. When it finishes, continue with
+[step 2](#2-clean-up-what-terraform-leaves-behind).
+
+**From your machine.** Use this to review the destroy plan before confirming. It needs
+administrator credentials for the account.
 
 ```bash
 cd envs/production
@@ -464,8 +477,21 @@ Both workflows authenticate through GitHub OIDC, so no AWS keys are stored in Gi
 
 | Trigger | What runs | Role variable |
 | --- | --- | --- |
-| Pull request | fmt check, validate, plan, plan posted as a PR comment | `AWS_TERRAFORM_PLAN_ROLE_ARN` |
+| Pull request | fmt check, validate (bootstrap and production), plan, plan posted as a PR comment | `AWS_TERRAFORM_PLAN_ROLE_ARN` |
 | Merge to main | plan and apply to production, after environment approval | `AWS_TERRAFORM_APPLY_ROLE_ARN` |
+| Manual run (Actions > Infrastructure > Run workflow) | destroy production, after environment approval | `AWS_TERRAFORM_APPLY_ROLE_ARN` |
+
+- **Paths.** Pull requests run for changes under `bootstrap/`, `modules/`, `envs/` or the
+  workflow itself. Merges to main only apply for `modules/`, `envs/` or the workflow;
+  `bootstrap/` is applied by hand.
+- **One at a time.** Runs share a concurrency group, so two Terraform operations never touch
+  the state at once, and a run in progress is never cancelled.
+- **Destroy.** Only runs from `main`, and only when the `confirm_destroy` input is typed
+  exactly as `destroy production`; any other value skips the job. It applies
+  `allow_destroy=true` to lift the deletion guards, plans the destroy and applies that plan,
+  the same steps as [Destroy production](#1-destroy-production). Nothing is shown for review
+  between the plan and the destroy, so the environment approval is the last check. The
+  [clean-up](#2-clean-up-what-terraform-leaves-behind) afterwards is still done by hand.
 
 **`app-workflows/deploy.yml`** (runs in the application repository)
 
