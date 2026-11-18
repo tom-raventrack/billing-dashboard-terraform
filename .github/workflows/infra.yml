@@ -3,6 +3,10 @@ name: Infrastructure
 # Plans on pull requests and applies on merge to main, for envs/production.
 # bootstrap/ is applied by hand and is only format-checked and validated here.
 #
+# Destroy runs only when started by hand (Actions > Infrastructure > Run
+# workflow) from main, with the confirmation input typed exactly, and still
+# waits for the production environment's required reviewers.
+#
 # Repository variables required (Settings > Secrets and variables > Actions > Variables):
 #   AWS_TERRAFORM_PLAN_ROLE_ARN   bootstrap output terraform_plan_role_arn
 #   AWS_TERRAFORM_APPLY_ROLE_ARN  bootstrap output terraform_apply_role_arn
@@ -22,6 +26,12 @@ on:
       - "modules/**"
       - "envs/**"
       - ".github/workflows/infra.yml"
+  workflow_dispatch:
+    inputs:
+      confirm_destroy:
+        description: 'Type "destroy production" to tear down envs/production. This cannot be undone.'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -48,7 +58,7 @@ jobs:
       id-token: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: hashicorp/setup-terraform@v4
         with:
@@ -146,3 +156,42 @@ jobs:
 
       - name: Apply
         run: terraform -chdir="$TF_ROOT" apply tfplan
+
+  destroy:
+    name: Destroy
+    # Manual runs only, from main, with the exact confirmation phrase.
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.confirm_destroy == 'destroy production'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "~> 1.15"
+          terraform_wrapper: false
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_APPLY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Init
+        run: terraform -chdir="$TF_ROOT" init
+
+      # Deletion protection on the load balancer and database, and the
+      # non-empty uploads bucket guard, must be lifted before destroy.
+      - name: Lift deletion protection
+        run: terraform -chdir="$TF_ROOT" apply -auto-approve -var="allow_destroy=true"
+
+      - name: Plan destroy
+        run: terraform -chdir="$TF_ROOT" plan -destroy -var="allow_destroy=true" -out=destroy.tfplan
+
+      - name: Destroy
+        run: terraform -chdir="$TF_ROOT" apply destroy.tfplan
