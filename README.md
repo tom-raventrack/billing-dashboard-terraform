@@ -398,6 +398,13 @@ it can't be left switched on by accident.
 
 ```bash
 aws secretsmanager delete-secret --region eu-west-1 --secret-id billing-dashboard/app-key --force-delete-without-recovery
+aws secretsmanager delete-secret --region eu-west-1 --secret-id billing-dashboard/google-client-id --force-delete-without-recovery
+aws secretsmanager delete-secret --region eu-west-1 --secret-id billing-dashboard/google-client-secret --force-delete-without-recovery
+aws secretsmanager delete-secret --region eu-west-1 --secret-id billing-dashboard/xero-client-id --force-delete-without-recovery
+aws secretsmanager delete-secret --region eu-west-1 --secret-id billing-dashboard/xero-client-secret --force-delete-without-recovery
+aws secretsmanager delete-secret --region eu-west-1 --secret-id billing-dashboard/hubspot-client-id --force-delete-without-recovery
+aws secretsmanager delete-secret --region eu-west-1 --secret-id billing-dashboard/hubspot-client-secret --force-delete-without-recovery
+aws secretsmanager delete-secret --region eu-west-1 --secret-id billing-dashboard/hubspot-app-id --force-delete-without-recovery
 ```
 
 ### 3. Destroy bootstrap (optional)
