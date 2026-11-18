@@ -426,6 +426,29 @@ terraform destroy
 Afterwards, remove `AWS_TERRAFORM_PLAN_ROLE_ARN` and `AWS_TERRAFORM_APPLY_ROLE_ARN` from this
 repository's variables, and delete the local `bootstrap/terraform.tfstate` files.
 
+### Rebuilding after a destroy
+
+Production can be rebuilt by applying again, as in [step 5](#5-apply-production). The state
+file stays in the bucket after a destroy with no resources in it, so the apply creates
+everything fresh. Two things left over from the destroy affect the rebuild:
+
+- **Secret names stay reserved for 7 days after a destroy.** Secrets Manager holds deleted
+  secrets for that long, so if you apply within 7 days of the destroy, Terraform will fail to
+  create `billing-dashboard/app-key` and the other seven app secrets. Either wait out the 7
+  days, or free each name now with:
+
+  ```bash
+  aws secretsmanager delete-secret --region eu-west-1 --secret-id billing-dashboard/app-key --force-delete-without-recovery
+  ```
+
+  Repeat it for each secret. After that you'll need to set the secret values again, as in
+  [step 7](#7-set-the-secret-values).
+- **An old final snapshot from a different database type doesn't get in the way.** If the
+  destroyed stack used Aurora, it left `billing-dashboard-final` as an Aurora cluster snapshot.
+  An RDS instance's final snapshot is a different kind with its own names, so they don't
+  clash. Keep the old one or delete it as you like. A snapshot of the *same* kind must be
+  deleted before the next destroy, as noted in the table above.
+
 ## GitHub Actions reference
 
 Both workflows authenticate through GitHub OIDC, so no AWS keys are stored in GitHub.
