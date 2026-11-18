@@ -91,17 +91,22 @@ module "ecs_cluster" {
 module "data" {
   source = "../../modules/data"
 
-  name                   = local.name
-  vpc_id                 = module.network.vpc_id
-  private_subnet_ids     = module.network.private_subnet_ids
-  task_security_group_id = module.ecs_cluster.task_security_group_id
-  db_name                = var.db_name
-  db_engine_version      = var.db_engine_version
-  db_min_capacity        = var.db_min_capacity
-  db_max_capacity        = var.db_max_capacity
-  secret_names           = toset(values(var.app_secrets))
-  db_deletion_protection = !var.allow_destroy
-  uploads_force_destroy  = var.allow_destroy
+  name                     = local.name
+  vpc_id                   = module.network.vpc_id
+  private_subnet_ids       = module.network.private_subnet_ids
+  task_security_group_id   = module.ecs_cluster.task_security_group_id
+  db_name                  = var.db_name
+  db_type                  = var.db_type
+  db_engine_version        = var.db_engine_version
+  db_instance_class        = var.db_instance_class
+  db_allocated_storage     = var.db_allocated_storage
+  db_max_allocated_storage = var.db_max_allocated_storage
+  db_instance_count        = var.db_instance_count
+  db_min_capacity          = var.db_min_capacity
+  db_max_capacity          = var.db_max_capacity
+  secret_names             = toset(values(var.app_secrets))
+  db_deletion_protection   = !var.allow_destroy
+  uploads_force_destroy    = var.allow_destroy
 }
 
 module "iam" {

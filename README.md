@@ -9,6 +9,7 @@ blue/green web service, a rolling queue worker and a single scheduler.
 - [Day-to-day changes](#day-to-day-changes)
 - [Tearing it down](#tearing-it-down)
 - [GitHub Actions reference](#github-actions-reference)
+- [Database options](#database-options)
 - [Design notes](#design-notes)
 - [Who owns what](#who-owns-what)
 - [Not included](#not-included)
@@ -22,7 +23,7 @@ modules/
   ecr/              app and nginx repositories
   alb/              ALB, blue + green target groups, listeners and rules (certificate passed in by ARN)
   ecs-cluster/      Fargate cluster, shared task security group
-  data/             Aurora PostgreSQL Serverless v2, uploads bucket, secret containers
+  data/             PostgreSQL (RDS, Aurora or Aurora Serverless v2), uploads bucket, secret containers
   iam/              execution, task, ECS infrastructure and GitHub Actions roles
   ecs-web-service/  nginx + PHP-FPM task, blue/green service, autoscaling, rollback alarms
   ecs-worker-service/  single-container rolling service (used for worker and scheduler)
@@ -65,7 +66,7 @@ Everything is in eu-west-1 and prefixed `billing-dashboard`.
 | Web service | `billing-dashboard-web`: service, task definition (nginx + PHP-FPM), autoscaling target and CPU policy (1 to 3 tasks), 2 log groups | Deploys blue/green |
 | Worker service | `billing-dashboard-worker`: service, task definition, 1 log group | 1 task running `queue:work`; deploys rolling |
 | Scheduler service | `billing-dashboard-scheduler`: service, task definition, 1 log group | 1 task running `schedule:work` |
-| Database | 1 Aurora PostgreSQL Serverless v2 cluster with 1 instance (0.5 to 2 ACUs), subnet group, security group | App data, queue, sessions and cache; 7-day backups, deletion protection |
+| Database | 1 RDS for PostgreSQL 18.6 instance (`db.t4g.small`, single-AZ, no replica, 20 GiB gp3 autoscaling to 100 GiB), subnet group, security group | App data, queue, sessions and cache; 7-day backups, deletion protection. Can be switched to Aurora; see [Database options](#database-options) |
 | Storage | 1 S3 bucket: `billing-dashboard-uploads-<account-id>` | Laravel uploads; versioned, encrypted, private |
 | Secrets | 8 under `billing-dashboard/`: `app-key`, `google-client-id`, `google-client-secret`, `xero-client-id`, `xero-client-secret`, `hubspot-client-id`, `hubspot-client-secret`, `hubspot-app-id` (each empty until you set it), plus the database password secret that RDS creates and manages | |
 | IAM | 5 roles: `ecs-execution`, `ecs-task`, `ecs-infrastructure`, `github-build`, `github-deploy` | The last two are assumed by the application repository's release workflow |
@@ -81,8 +82,8 @@ Everything is in eu-west-1 and prefixed `billing-dashboard`.
 ### Running costs
 
 These bill continuously whether or not anyone uses the dashboard: the NAT gateway, the load
-balancer, the three always-on Fargate tasks (web, worker, scheduler), and Aurora at its
-0.5 ACU minimum. The rest is usage-based or negligible at this scale.
+balancer, the three always-on Fargate tasks (web, worker, scheduler), and the database
+instance with its storage. The rest is usage-based or negligible at this scale.
 
 To list what is actually in state, as opposed to what the code describes (production needs
 `terraform init` with AWS credentials first):
@@ -219,7 +220,7 @@ Optional settings, such as `alert_email` and task sizes, are listed in
 
 Open a pull request with the step 4 changes. The workflow posts the plan as a comment; review
 it, merge, and approve the `production` deployment when prompted. The first apply takes around
-15 minutes, mostly Aurora.
+15 minutes, mostly the database.
 
 To run it from your machine instead:
 
@@ -389,7 +390,7 @@ it can't be left switched on by accident.
 
 | Left behind | Why | What to do |
 | --- | --- | --- |
-| Database snapshot `billing-dashboard-final` | Taken automatically as a last backup | Keep it as long as you might need the data, then delete it in the RDS console. It must be deleted before the stack can be destroyed a second time, because the name is reused. |
+| Database snapshot `billing-dashboard-final` | Taken automatically as a last backup (a DB snapshot for `db_type = "rds"`, a cluster snapshot for the Aurora types) | Keep it as long as you might need the data, then delete it in the RDS console. It must be deleted before the stack can be destroyed a second time, because the name is reused. |
 | Application secrets, such as `billing-dashboard/app-key` | Secrets Manager holds deleted secrets for 7 days | Nothing, unless you are rebuilding within 7 days; the names are reserved until then. To free a name immediately, run the command below. |
 | ACM certificate | Created by hand, not by Terraform | Delete it in the ACM console. |
 | DNS records in the DNS account | Managed in another AWS account | Ask its owner to remove the dashboard record and the certificate validation CNAME. |
@@ -451,6 +452,81 @@ Both workflows authenticate through GitHub OIDC, so no AWS keys are stored in Gi
 6. **Deploy worker and scheduler.** Rolling, after web traffic has shifted.
 
 Steps 4 to 6 use `AWS_DEPLOY_ROLE_ARN`.
+
+## Database options
+
+The `db_type` variable in `envs/production/variables.tf` chooses which PostgreSQL the
+`data` module creates. Only the resources for the chosen type exist; the subnet group,
+security group, port (5432), managed master password, backups, deletion protection and
+final snapshot behave the same for all three. The app sees the same `DB_*` settings
+whichever is chosen.
+
+| `db_type` | Creates | Settings it uses |
+| --- | --- | --- |
+| `rds` (default) | 1 RDS for PostgreSQL instance: a single writer, single-AZ, no replica | `db_instance_class`, `db_allocated_storage`, `db_max_allocated_storage` |
+| `aurora` | Aurora PostgreSQL cluster on provisioned instances | `db_instance_class` (`db.t4g.medium` or larger), `db_instance_count` |
+| `aurora-serverless` | Aurora PostgreSQL Serverless v2 cluster | `db_min_capacity`, `db_max_capacity`, `db_instance_count` |
+
+`db_engine_version` applies to all three and must be a version the chosen engine offers. A
+major version such as `"18"` takes the newest minor version at creation; a full version such
+as `"18.6"` pins it. Minor versions still move during maintenance windows, and Terraform
+ignores that drift. To list what is available:
+
+```bash
+aws rds describe-db-engine-versions --region eu-west-1 --engine postgres --query "DBEngineVersions[].EngineVersion"
+```
+
+For Aurora, use `--engine aurora-postgresql`.
+
+The defaults are equivalent to setting this in `envs/production/terraform.tfvars`:
+
+```hcl
+db_type              = "rds"
+db_engine_version    = "18.6"
+db_instance_class    = "db.t4g.small"
+db_allocated_storage = 20
+```
+
+Aurora on provisioned instances, with a reader in a second availability zone:
+
+```hcl
+db_type           = "aurora"
+db_engine_version = "17"
+db_instance_class = "db.t4g.medium"
+db_instance_count = 2
+```
+
+Aurora Serverless v2:
+
+```hcl
+db_type           = "aurora-serverless"
+db_engine_version = "17"
+db_min_capacity   = 0.5
+db_max_capacity   = 2
+```
+
+### Changing type
+
+**Changing `db_type` creates a new, empty database and deletes the old one.** Nothing is
+copied across, and a snapshot of one kind cannot be restored as the other (an Aurora
+cluster snapshot cannot become an RDS instance, and the reverse needs a separate migration).
+To keep the data:
+
+1. Stop releases, and scale the worker and scheduler to 0 so nothing writes during the move.
+2. Dump the old database with `pg_dump` from a task in the cluster (ECS Exec works), and keep
+   the dump somewhere safe such as the uploads bucket.
+3. Change `db_type` and apply with `-var allow_destroy=true`. Deletion protection otherwise
+   stops Terraform deleting the old database, and the apply fails part-way with the new one
+   created and the old one still there. This also takes a final snapshot of the old database.
+4. Restore the dump into the new database with `pg_restore`.
+5. Run a release. Running tasks keep the old `DB_HOST` until the next release picks up the
+   new task definition revisions (see [Who owns what](#who-owns-what)).
+6. Apply again without `allow_destroy`, to turn deletion protection back on.
+
+The final snapshot is named `billing-dashboard-final`. Delete it once you no longer need it,
+because a later change of type or teardown reuses the name. RDS DB snapshots and Aurora
+cluster snapshots have separate names, so this only matters when you switch back to a type
+you used before.
 
 ## Design notes
 

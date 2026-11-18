@@ -55,7 +55,7 @@ resource "aws_route_table_association" "public" {
 }
 
 # ---------------------------------------------------------------------------
-# Private subnets: ECS tasks and Aurora
+# Private subnets: ECS tasks and the database
 # ---------------------------------------------------------------------------
 
 resource "aws_subnet" "private" {

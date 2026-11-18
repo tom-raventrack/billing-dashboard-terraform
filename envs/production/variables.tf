@@ -149,20 +149,52 @@ variable "db_name" {
   default = "billing_dashboard"
 }
 
-variable "db_engine_version" {
-  description = "Aurora PostgreSQL major version (e.g. \"16\"); the newest available minor version is used at creation. A full version such as \"16.9\" pins it exactly."
+variable "db_type" {
+  description = "Which PostgreSQL to run: \"rds\" (single RDS for PostgreSQL instance), \"aurora\" (Aurora PostgreSQL, provisioned instances) or \"aurora-serverless\" (Aurora Serverless v2). Changing it replaces the database; see the README."
   type        = string
-  default     = "16"
+  default     = "rds"
+}
+
+variable "db_engine_version" {
+  description = "PostgreSQL version. A major version (e.g. \"18\") uses the newest available minor version at creation; a full version such as \"18.6\" pins it exactly."
+  type        = string
+  default     = "18.6"
+}
+
+variable "db_instance_class" {
+  description = "Instance class for db_type \"rds\" or \"aurora\". Aurora needs db.t4g.medium or larger."
+  type        = string
+  default     = "db.t4g.small"
+}
+
+variable "db_allocated_storage" {
+  description = "db_type \"rds\" only: initial gp3 storage in GiB."
+  type        = number
+  default     = 20
+}
+
+variable "db_max_allocated_storage" {
+  description = "db_type \"rds\" only: storage autoscaling ceiling in GiB."
+  type        = number
+  default     = 100
+}
+
+variable "db_instance_count" {
+  description = "Aurora types only: 1 is a single writer; 2 adds a reader in another AZ."
+  type        = number
+  default     = 1
 }
 
 variable "db_min_capacity" {
-  type    = number
-  default = 0.5
+  description = "db_type \"aurora-serverless\" only: minimum ACUs."
+  type        = number
+  default     = 0.5
 }
 
 variable "db_max_capacity" {
-  type    = number
-  default = 2
+  description = "db_type \"aurora-serverless\" only: maximum ACUs."
+  type        = number
+  default     = 2
 }
 
 # --- Alerts ----------------------------------------------------------------
