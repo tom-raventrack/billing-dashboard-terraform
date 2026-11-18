@@ -38,7 +38,7 @@ resource "aws_vpc_security_group_ingress_rule" "from_alb" {
 
 resource "aws_vpc_security_group_egress_rule" "all" {
   security_group_id = aws_security_group.tasks.id
-  description       = "Outbound: Aurora, ECR, S3, Secrets Manager, CloudWatch, third-party APIs"
+  description       = "Outbound: PostgreSQL, ECR, S3, Secrets Manager, CloudWatch, third-party APIs"
   cidr_ipv4         = "0.0.0.0/0"
   ip_protocol       = "-1"
 }
