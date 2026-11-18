@@ -31,9 +31,6 @@ envs/
   production/       calls the modules; state key production/terraform.tfstate
 .github/workflows/
   infra.yml         plans on pull requests, applies envs/production on merge to main
-app-workflows/
-  deploy.yml        release workflow to copy into the Laravel application repository
-  iam/              reference JSON for the build and deploy roles (Terraform creates the real ones)
 ```
 
 There are two Terraform configurations, each with its own `terraform.tfvars`:
