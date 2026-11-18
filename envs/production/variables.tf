@@ -105,6 +105,17 @@ variable "bake_time_in_minutes" {
   default = 10
 }
 
+variable "cpu_architecture" {
+  description = "CPU architecture for every Fargate task (web, worker, scheduler). Must match the architecture the app and nginx images are built for."
+  type        = string
+  default     = "ARM64"
+
+  validation {
+    condition     = contains(["X86_64", "ARM64"], var.cpu_architecture)
+    error_message = "cpu_architecture must be X86_64 or ARM64."
+  }
+}
+
 variable "web_cpu" {
   type    = number
   default = 512

@@ -165,11 +165,12 @@ module "web" {
   environment = local.app_environment
   secrets     = local.app_secrets
 
-  cpu           = var.web_cpu
-  memory        = var.web_memory
-  desired_count = var.web_min_capacity
-  min_capacity  = var.web_min_capacity
-  max_capacity  = var.web_max_capacity
+  cpu              = var.web_cpu
+  memory           = var.web_memory
+  cpu_architecture = var.cpu_architecture
+  desired_count    = var.web_min_capacity
+  min_capacity     = var.web_min_capacity
+  max_capacity     = var.web_max_capacity
 
   enable_blue_green            = var.enable_blue_green
   bake_time_in_minutes         = var.bake_time_in_minutes
@@ -210,9 +211,10 @@ module "worker" {
   command      = ["php", "artisan", "queue:work", "database", "--tries=3", "--timeout=110", "--max-time=3600"]
   stop_timeout = 120
 
-  cpu           = var.worker_cpu
-  memory        = var.worker_memory
-  desired_count = var.worker_desired_count
+  cpu              = var.worker_cpu
+  memory           = var.worker_memory
+  cpu_architecture = var.cpu_architecture
+  desired_count    = var.worker_desired_count
 
   log_group_prefix = local.log_group_prefix
 
@@ -237,6 +239,8 @@ module "scheduler" {
   secrets     = local.app_secrets
 
   command = ["php", "artisan", "schedule:work"]
+
+  cpu_architecture = var.cpu_architecture
 
   # The scheduler must run exactly once: stop the old task before starting
   # the new one, and never scale above one.
