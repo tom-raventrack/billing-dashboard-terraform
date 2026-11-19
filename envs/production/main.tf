@@ -15,6 +15,9 @@ locals {
 
   app_url = "https://${var.domain_name}"
 
+  # SES sending domain, a subdomain of the dashboard's.
+  mail_domain = "mail.${var.domain_name}"
+
   # Non-secret Laravel configuration, identical for web, worker and scheduler.
   app_environment = merge({
     APP_ENV              = var.environment
@@ -37,12 +40,20 @@ locals {
     GOOGLE_REDIRECT_URI  = "${local.app_url}/auth/google/callback"
     GOOGLE_SSO_DOMAIN    = "raventrack.com"
     HUBSPOT_REDIRECT_URI = "${local.app_url}/api/hubspot/callback"
+    MAIL_MAILER          = "smtp"
+    MAIL_HOST            = module.mail.smtp_host
+    MAIL_PORT            = "587"
+    MAIL_FROM_ADDRESS    = "noreply@${local.mail_domain}"
   }, var.extra_environment)
 
   # Injected by ECS at task start from Secrets Manager.
   app_secrets = merge(
     { for env_name, secret in var.app_secrets : env_name => module.data.secret_arns[secret] },
-    { DB_PASSWORD = "${module.data.db_master_secret_arn}:password::" },
+    {
+      DB_PASSWORD   = "${module.data.db_master_secret_arn}:password::"
+      MAIL_USERNAME = "${module.mail.smtp_secret_arn}:username::"
+      MAIL_PASSWORD = "${module.mail.smtp_secret_arn}:password::"
+    },
   )
 }
 
@@ -109,6 +120,14 @@ module "data" {
   uploads_force_destroy    = var.allow_destroy
 }
 
+# SES domain identity and an IAM user whose SMTP credentials the app sends with.
+module "mail" {
+  source = "../../modules/mail"
+
+  name   = local.name
+  domain = local.mail_domain
+}
+
 module "iam" {
   source = "../../modules/iam"
 
@@ -118,7 +137,7 @@ module "iam" {
   task_definition_families = values(local.service_names)
   log_group_prefix         = local.log_group_prefix
   ecr_repository_arns      = values(module.ecr.repository_arns)
-  secret_arns              = concat(values(module.data.secret_arns), [module.data.db_master_secret_arn])
+  secret_arns              = concat(values(module.data.secret_arns), [module.data.db_master_secret_arn, module.mail.smtp_secret_arn])
   uploads_bucket_arn       = module.data.uploads_bucket_arn
   metrics_namespace        = var.metrics_namespace
   github_repository        = var.github_app_repository
