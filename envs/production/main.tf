@@ -227,7 +227,7 @@ module "worker" {
   secrets     = local.app_secrets
 
   # Keep ordered: --timeout (110) < stop_timeout (120) < DB_QUEUE_RETRY_AFTER (180).
-  command      = ["php", "artisan", "queue:work", "database", "--tries=3", "--timeout=110", "--max-time=3600"]
+  command      = ["php", "artisan", "queue:work", "database", "--tries=3", "--timeout=110"]
   stop_timeout = 120
 
   cpu              = var.worker_cpu
