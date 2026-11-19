@@ -65,8 +65,3 @@ output "app_secret_arns" {
 output "alerts_topic_arn" {
   value = aws_sns_topic.alerts.arn
 }
-
-output "ses_dkim_records" {
-  description = "CNAMEs that verify the SES sending domain. Add them in the DNS account; SES cannot send until the domain is verified."
-  value       = module.mail.dkim_records
-}

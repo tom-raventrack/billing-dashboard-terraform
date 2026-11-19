@@ -25,7 +25,7 @@ modules/
   ecs-cluster/      Fargate cluster, shared task security group
   data/             PostgreSQL (RDS, Aurora or Aurora Serverless v2), uploads bucket, secret containers
   iam/              execution, task, ECS infrastructure and GitHub Actions roles
-  mail/             SES domain identity, SMTP IAM user and its credentials secret
+  mail/             SES SMTP IAM user and its credentials secret
   ecs-web-service/  nginx + PHP-FPM task, blue/green service, autoscaling, rollback alarms
   ecs-worker-service/  single-container rolling service (used for worker and scheduler)
 envs/
@@ -67,7 +67,7 @@ Everything is in eu-west-1 and prefixed `billing-dashboard`.
 | Database | 1 RDS for PostgreSQL 18.6 instance (`db.t4g.small`, single-AZ, no replica, 20 GiB gp3 autoscaling to 100 GiB), subnet group, security group | App data, queue, sessions and cache; 7-day backups, deletion protection. Can be switched to Aurora; see [Database options](#database-options) |
 | Storage | 1 S3 bucket: `billing-dashboard-uploads-<account-id>` | Laravel uploads; versioned, encrypted, private |
 | Secrets | 8 under `billing-dashboard/`: `app-key`, `google-client-id`, `google-client-secret`, `xero-client-id`, `xero-client-secret`, `hubspot-client-id`, `hubspot-client-secret`, `hubspot-app-id` (each empty until you set it), plus the database password secret that RDS creates and manages | |
-| Email | SES domain identity for `mail.<domain_name>`, IAM user `billing-dashboard-ses-smtp` (may only send from `*@mail.<domain_name>`), secret `billing-dashboard/ses-smtp` holding its SMTP username and password | Terraform creates the access key, so the SMTP password is in state. The domain verifies once the `ses_dkim_records` output CNAMEs are added in the DNS account |
+| Email | IAM user `billing-dashboard-ses-smtp` (may only send from `*@mail.<domain_name>`), secret `billing-dashboard/ses-smtp` holding its SMTP username and password | Terraform creates the access key, so the SMTP password is in state |
 | IAM | 5 roles: `ecs-execution`, `ecs-task`, `ecs-infrastructure`, `github-build`, `github-deploy` | The last two are assumed by the application repository's release workflow |
 | Monitoring | 4 CloudWatch alarms (target 5xx, p95 response time, unhealthy hosts for blue and for green), 1 SNS topic `billing-dashboard-alerts` | The first two alarms also trigger deployment rollback |
 
@@ -75,6 +75,7 @@ Everything is in eu-west-1 and prefixed `billing-dashboard`.
 
 - **GitHub OIDC provider:** one per AWS account, shared; only looked up.
 - **ACM certificate:** requested by hand and passed in by ARN.
+- **SES identity:** `mail.<domain_name>` is created and verified by hand.
 - **DNS records:** the dashboard record and the certificate validation CNAME live in another
   AWS account.
 

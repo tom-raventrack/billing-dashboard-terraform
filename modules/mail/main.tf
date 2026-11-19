@@ -7,19 +7,10 @@ locals {
 }
 
 # ---------------------------------------------------------------------------
-# Sending domain. SES only accepts mail from a verified identity; the domain
-# is verified by the DKIM CNAMEs in the dkim_records output, which are added
-# in the DNS account (not managed here).
-# ---------------------------------------------------------------------------
-
-resource "aws_sesv2_email_identity" "domain" {
-  email_identity = var.domain
-}
-
-# ---------------------------------------------------------------------------
-# SMTP user. SES SMTP authenticates with an IAM access key: the key ID is the
-# SMTP username and a password derived from the secret key is the SMTP
-# password. Both are stored in Secrets Manager for ECS to inject.
+# SMTP user for an SES domain identity that already exists and is verified
+# outside Terraform. SES SMTP authenticates with an IAM access key: the key
+# ID is the SMTP username and a password derived from the secret key is the
+# SMTP password. Both are stored in Secrets Manager for ECS to inject.
 # ---------------------------------------------------------------------------
 
 resource "aws_iam_user" "smtp" {

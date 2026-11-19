@@ -120,7 +120,8 @@ module "data" {
   uploads_force_destroy    = var.allow_destroy
 }
 
-# SES domain identity and an IAM user whose SMTP credentials the app sends with.
+# IAM user whose SMTP credentials the app sends with. The SES identity for
+# mail_domain already exists and is verified outside Terraform.
 module "mail" {
   source = "../../modules/mail"
 
