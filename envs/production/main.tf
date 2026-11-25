@@ -46,9 +46,18 @@ locals {
     MAIL_FROM_ADDRESS    = "noreply@${local.mail_domain}"
   }, var.extra_environment)
 
+  # Short name of the secret holding Laravel's APP_KEY, generated below.
+  app_key_secret = "app-key"
+
+  # Short name of the JSON secret holding the third-party integration
+  # credentials, one key per environment variable.
+  integrations_secret = "integrations"
+
   # Injected by ECS at task start from Secrets Manager.
   app_secrets = merge(
     { for env_name, secret in var.app_secrets : env_name => module.data.secret_arns[secret] },
+    { for key in var.integration_secret_keys : key => "${module.data.secret_arns[local.integrations_secret]}:${key}::" },
+    { APP_KEY = aws_secretsmanager_secret_version.app_key.arn },
     {
       DB_PASSWORD   = "${module.data.db_master_secret_arn}:password::"
       MAIL_USERNAME = "${module.mail.smtp_secret_arn}:username::"
@@ -115,9 +124,24 @@ module "data" {
   db_instance_count        = var.db_instance_count
   db_min_capacity          = var.db_min_capacity
   db_max_capacity          = var.db_max_capacity
-  secret_names             = toset(values(var.app_secrets))
+  secret_names             = toset(concat(values(var.app_secrets), [local.app_key_secret, local.integrations_secret]))
   db_deletion_protection   = !var.allow_destroy
   uploads_force_destroy    = var.allow_destroy
+}
+
+# Laravel APP_KEY, in the format `php artisan key:generate` produces:
+# "base64:" followed by 32 base64-encoded bytes (AES-256-CBC). The password is
+# ephemeral and the secret value write-only, so the key never enters state or
+# plan output. Terraform writes it only when the secret version is created or
+# app_key_version changes; every other plan and apply leaves it alone.
+ephemeral "random_password" "app_key" {
+  length = 32
+}
+
+resource "aws_secretsmanager_secret_version" "app_key" {
+  secret_id                = module.data.secret_arns[local.app_key_secret]
+  secret_string_wo         = "base64:${base64encode(ephemeral.random_password.app_key.result)}"
+  secret_string_wo_version = var.app_key_version
 }
 
 # IAM user whose SMTP credentials the app sends with. The SES identity for
