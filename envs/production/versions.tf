@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.10"
+  required_version = ">= 1.11" # write-only arguments
 
   required_providers {
     aws = {
@@ -8,6 +8,11 @@ terraform {
       # load_balancer.advanced_configuration) needs a recent 6.x provider.
       # Confirm the minimum version in the provider changelog.
       version = "~> 6.4"
+    }
+    random = {
+      source = "hashicorp/random"
+      # Ephemeral random_password, used to generate APP_KEY outside state.
+      version = "~> 3.7"
     }
   }
 

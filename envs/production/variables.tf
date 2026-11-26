@@ -66,18 +66,29 @@ variable "initial_image_tag" {
 }
 
 variable "app_secrets" {
-  description = "Map of environment variable name to Secrets Manager secret short name. Terraform creates the secret; set its value outside Terraform."
+  description = "Map of environment variable name to Secrets Manager secret short name, for secrets that hold a single plain-text value. Terraform creates the secret; set its value outside Terraform. APP_KEY is not listed here because Terraform generates it."
   type        = map(string)
-  default = {
-    APP_KEY               = "app-key"
-    GOOGLE_CLIENT_ID      = "google-client-id"
-    GOOGLE_CLIENT_SECRET  = "google-client-secret"
-    XERO_CLIENT_ID        = "xero-client-id"
-    XERO_CLIENT_SECRET    = "xero-client-secret"
-    HUBSPOT_CLIENT_ID     = "hubspot-client-id"
-    HUBSPOT_CLIENT_SECRET = "hubspot-client-secret"
-    HUBSPOT_APP_ID        = "hubspot-app-id"
-  }
+  default     = {}
+}
+
+variable "app_key_version" {
+  description = "Bump to generate and store a new APP_KEY on the next apply. Any other change leaves the stored key alone."
+  type        = number
+  default     = 1
+}
+
+variable "integration_secret_keys" {
+  description = "Keys of the JSON document in the <name>/integrations secret. Each key is injected as the environment variable of the same name. Terraform creates the secret; set its value outside Terraform."
+  type        = list(string)
+  default = [
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "XERO_CLIENT_ID",
+    "XERO_CLIENT_SECRET",
+    "HUBSPOT_CLIENT_ID",
+    "HUBSPOT_CLIENT_SECRET",
+    "HUBSPOT_APP_ID",
+  ]
 }
 
 variable "extra_environment" {
